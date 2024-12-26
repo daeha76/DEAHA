@@ -1,0 +1,23 @@
+name: graphql-workshop-1st
+
+services:
+  graphql-workshop-postgres:
+    container_name: graphql-workshop-postgres-1st
+    image: postgres:17.2
+    environment:
+      POSTGRES_USER: graphql_workshop
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: graphql_workshop_1st
+    networks: [graphql-workshop-1st]
+    ports: ["5433:5433"]
+    volumes:
+      - type: volume
+        source: postgres-data-1st
+        target: /var/lib/postgresql/data
+
+networks:
+  graphql-workshop-1st:
+    name: graphql-workshop-1st
+
+volumes:
+  postgres-data-1st:
