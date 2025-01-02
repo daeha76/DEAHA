@@ -1,63 +1,138 @@
 ﻿using System.Diagnostics;
+using System.Reflection;
 
-string sdeletePath = @"D:\Documents\SDelete\sdelete.exe";
-string[] FOLDERPATHS = [
-    @"D:\Downloads\BizboxA",
-    @"D:\Documents\BizboxA",
-    //@"D:\Pictures\Screenshots",
-    //@"D:\Pictures\DesktopBackground",
-    //@"D:\Pictures\PhotoScape X",
-    //@"D:\Documents\Bandicam",
-    @"D:\FBKR_SCAN",
-    //@"D:\OneDrive - (주)종합건축사사무소 동일건축",
-    //@"D:\Obsidian",
-    //@"D:\DBMS",
-    //@"D:\Backup",
-
-];
-foreach (var folderPath in FOLDERPATHS)
+string userInput = string.Empty;
+do
 {
-    if (!Directory.Exists(folderPath))
-    {
-        Console.WriteLine("Error: The specified folder does not exist.");
-        return;
-    }
+    Console.WriteLine("Secure File Deletion Program");
+
+    string sdeletePath = ExtractSDelete();
 
     if (!File.Exists(sdeletePath))
     {
-        Console.WriteLine("Error: sdelete.exe not found.");
+        Console.WriteLine("Error: sdelete.exe not found. Make sure it is included in the project.");
         return;
     }
 
-    string[] files = Directory.GetFiles(folderPath, "*", SearchOption.AllDirectories);
+    Console.Write("1. Enter the path of the folder you want to securely delete:");
+    string pathInput = Console.ReadLine();
+    string path = pathInput.Replace("\"", "").Trim();
 
-    foreach (var file in files)
+    Console.Write("2. Enter the number of overwrite passes (default is 3):");
+    string countInput = Console.ReadLine();
+    byte count = byte.TryParse(countInput, out byte result) ? result : (byte)3;
+
+    bool isFolder = Directory.Exists(path);
+    bool isFile = File.Exists(path);
+
+    if (string.IsNullOrEmpty(path) || (!isFile && !isFolder))
     {
-        Console.WriteLine("Deleting files: " + file);
+        Console.WriteLine("Error: The specified file or folder does not exist.");
+        return;
+    }
+
+    try
+    {
+        if (isFile)
+        {
+            SDeleteFile(sdeletePath, path, count);
+            Console.WriteLine("Specified file has been securely deleted.: " + path);
+        }
+        else
+        {
+            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                SDeleteFile(sdeletePath, file, count);
+            }
+
+            string[] directories = Directory.GetDirectories(path, "*", SearchOption.AllDirectories);
+            Array.Reverse(directories);
+            foreach (var directory in directories)
+            {
+                Console.WriteLine("Deleting empty directory: " + directory);
+                if (Directory.Exists(directory) && Directory.GetFileSystemEntries(directory).Length == 0)
+                {
+                    Directory.Delete(directory);
+                }
+            }
+
+            if (Directory.Exists(path) && Directory.GetFileSystemEntries(path).Length == 0)
+            {
+                Console.WriteLine("Deleting root directory: " + path);
+                Directory.Delete(path);
+            }
+
+            Console.WriteLine("All specified files and folders have been securely deleted.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("An error occurred: " + ex.Message);
+    }
+
+    static string ExtractSDelete()
+    {
+        string resourceName = "SDeleteConsole.sdelete.exe"; // 프로젝트 네임스페이스에 맞게 변경
+        string outputPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sdelete.exe");
+
+        if (!File.Exists(outputPath))
+        {
+            try
+            {
+                using (Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+                using (FileStream file = new FileStream(outputPath, FileMode.Create, FileAccess.Write))
+                {
+                    resource.CopyTo(file);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to extract sdelete.exe: " + ex.Message);
+                return null;
+            }
+        }
+
+        return outputPath;
+    }
+ 
+    static void SDeleteFile(string sdeletePath, string file, byte count = 3)
+    {
+        Console.WriteLine("Securely deleting file: " + file);
 
         Process process = new Process();
         process.StartInfo.FileName = sdeletePath;
-        process.StartInfo.Arguments = $"-p 10 \"{file}\"";
+        Console.WriteLine($"-p {count} \"{file}\"");
+        process.StartInfo.Arguments = $"-p {count} \"{file}\"";
         process.StartInfo.UseShellExecute = false;
         process.StartInfo.CreateNoWindow = true;
 
         process.Start();
         process.WaitForExit();
+
+        if (File.Exists(file))
+        {
+            File.Delete(file);
+        }
     }
-
-    string[] directories = Directory.GetDirectories(folderPath, "*", SearchOption.AllDirectories);
-    Array.Reverse(directories);
-
-    foreach (var directory in directories)
+    bool isValidInput = false;
+    do
     {
-        Console.WriteLine("Deleting directorys: " + directory);
-        Directory.Delete(directory); // 빈 디렉토리 삭제
-    }
+        Console.Write("Do you want to run the program again? (y/n):");
+        userInput = Console.ReadLine().Trim().ToLower();
+        isValidInput = userInput == "n" || userInput == "y";
 
-    // 3. 최상위 디렉토리 삭제
-    //if (Directory.Exists(folderPath) && Directory.GetFiles(folderPath).Length == 0 && Directory.GetDirectories(folderPath).Length == 0)
-    //{
-    //    Console.WriteLine("Deleting Root Directory: " + folderPath);
-    //    Directory.Delete(folderPath);
-    //}
-}
+        if (!isValidInput)
+        {
+            Console.WriteLine("Invalid input. Please enter 'y' or 'n'.");
+        }
+        else if (userInput == "n")
+        {
+            Console.WriteLine("Program terminated. Goodbye!");
+        }
+    } while (!isValidInput);
+} while (userInput == "y");
+Console.WriteLine("Press any key to exit...");
+
+
+
